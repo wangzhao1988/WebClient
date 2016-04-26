@@ -13,7 +13,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 
 public class Process {
 	private static final String folderPath = "./data/";
-	private static final String ls = " ";
+	private static final String ls = "%20";
 	private static final int maxLength = 1800;
 	// map[file name] = word count
 	private static Map<Integer, Integer> fileIndex2WordCount = new HashMap<Integer, Integer>();
@@ -87,7 +87,8 @@ public class Process {
 		try {
 			writer = new FileWriter(folderPath + "url.txt");
 			for (int i = 0; i < urlList.size(); i++) {
-				writer.write(URLEncoder.encode(urlList.get(i), "UTF-8") + "\n");
+//				System.out.println(urlList.get(i));
+				writer.write(urlList.get(i) + "\n");
 			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
