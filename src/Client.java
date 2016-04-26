@@ -28,13 +28,20 @@ public class Client implements Runnable {
 	private static String[] urls;
 	private Thread thread;
 	private boolean isPost;
-	private static int threadCount = THREADS_NUM;
-	private static int queryCount = 0;
-	private static double queryMeanTime = 0;
-	private static double queryWorstTime = 0;
-	private static int[] queryStatArray = new int[51];
-	private static int postWordCount = 0;
-	private static double postQueryTime = 0;
+	private static volatile int threadCount = THREADS_NUM;
+	private static volatile int totalQueryCount = 0;
+	private static volatile double totalQueryMeanTime = 0;
+	private static volatile long totalQueryWorstTime = 0;
+	private static volatile double totalPostTime = 0;
+	private static volatile int totalPostWord = 0;
+	private static volatile int[] totalQueryStats = new int[51];
+	
+	private int queryCount = 0;
+	private double queryTime = 0;
+	private long queryWorstTime = 0;
+	private int[] queryStats = new int[51];
+	private int postWordCount = 0;
+	
 	
 	private int id;
 	
@@ -74,20 +81,34 @@ public class Client implements Runnable {
 		
 		synchronized (lock) {
 			Client.threadCount -= 1;
+			System.out.println("Running threads: " + Client.threadCount);
+			totalQueryCount += this.queryCount;
+			totalQueryMeanTime += this.queryTime;
+			if (this.queryWorstTime > totalQueryWorstTime) {
+				totalQueryWorstTime = this.queryWorstTime;
+			}
+			if (this.isPost) {
+				totalPostTime += this.queryTime;
+				totalPostWord += this.postWordCount;
+			}
+			for (int i = 0; i < this.queryStats.length; i++) {
+				totalQueryStats[i] += this.queryStats[i];
+			}
+			
 			if (Client.threadCount == 0) {
 				System.out.println("frequency ~ response: ");
 				for (int i = 0; i < 50; i++) {
-					System.out.print(Client.queryStatArray[i] + ", ");
+					System.out.print(Client.totalQueryStats[i] + ", ");
 				}
 				System.out.println();
-				Client.queryMeanTime /= Client.queryCount;
-				System.out.println("Mean time: " + Client.queryMeanTime);
-				System.out.println("Worst time: " + Client.queryWorstTime);
+				Client.totalQueryMeanTime /= Client.totalQueryCount;
+				System.out.println("Mean time: " + Client.totalQueryMeanTime);
+				System.out.println("Worst time: " + Client.totalQueryWorstTime);
 				
-				System.out.println("Total post query time: " + Client.postQueryTime);
-				System.out.println("Total post query words: " + Client.postWordCount);
-				Client.postQueryTime /= Client.postWordCount;
-//				System.out.println("Time for each words: " + Client.postQueryTime);
+				System.out.println("Total post query time: " + Client.totalPostTime);
+				System.out.println("Total post query words: " + Client.totalPostWord);
+				Client.totalPostTime /= Client.totalPostWord;
+				System.out.println("Time for each words: " + Client.totalPostTime);
 			}
 		}
 	}
@@ -175,19 +196,16 @@ public class Client implements Runnable {
 		long time = System.currentTimeMillis() - startTime;
 		
 		long indexInStats = (time-1)/20;
+		if (indexInStats >= 50) {
+			this.queryStats[50]++;
+		} else {
+			this.queryStats[(int) indexInStats]++;
+		}
 		
-		synchronized (lock) {
-			if (indexInStats >= 50) {
-				Client.queryStatArray[50]++;
-			} else {
-				Client.queryStatArray[(int) indexInStats]++;
-			}
-			
-			Client.queryCount++;
-			Client.queryMeanTime += time;
-			if (time > Client.queryWorstTime) {
-				Client.queryWorstTime = time;
-			}
+		this.queryCount++;
+		this.queryTime += time;
+		if (time > this.queryWorstTime) {
+			this.queryWorstTime = time;
 		}
 		
 
@@ -240,23 +258,18 @@ public class Client implements Runnable {
 		long time = System.currentTimeMillis() - startTime;
 		
 		long indexInStats = (time-1)/20;
-		
-		synchronized (lock) {
-			if (indexInStats >= 50) {
-				Client.queryStatArray[50]++;
-			} else {
-				Client.queryStatArray[(int) indexInStats]++;
-			}
-			
-			Client.queryCount++;
-			Client.queryMeanTime += time;
-			if (time > Client.queryWorstTime) {
-				Client.queryWorstTime = time;
-			}
-			Client.postQueryTime += time;
-			Client.postWordCount += wordCount[0];
-			
+		if (indexInStats >= 50) {
+			this.queryStats[50]++;
+		} else {
+			this.queryStats[(int) indexInStats]++;
 		}
+		
+		this.queryCount++;
+		this.queryTime += time;
+		if (time > this.queryWorstTime) {
+			this.queryWorstTime = time;
+		}
+		this.postWordCount += wordCount[0];
 		
 //		System.out.println("\nSending 'POST' request to URL : " + url);
 //		System.out.println("Post parameters : " + post.getEntity());
