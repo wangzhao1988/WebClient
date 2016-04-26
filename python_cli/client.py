@@ -48,7 +48,7 @@ def post_worker(data, id):
             print(id, i)
         item = data[i]
         word_count = len(item.split())
-        item = urllib.quote(item)
+        # item = urllib.quote(item)
         # start_time = time.time()
         conn.request("POST", POST_END+item)
         start_time = time.time()
