@@ -56,9 +56,11 @@ def post_worker(data, id):
         #     print(id, i)
         item = data[i]
         word_count = len(item.split())
-        item = urllib.quote(item)
+        # item = urllib.quote(item)
         # start_time = time.time()
-        conn.request("POST", POST_END+item)
+        headers = {"Content-type": item, "Accept": "text/plain"}
+        params = urllib.urlencode({})
+        conn.request("POST", POST_END+urllib.quote(item), params, headers)
         start_time = time.time()
         response = conn.getresponse()
         elapse_time = time.time() - start_time
@@ -71,7 +73,8 @@ def post_worker(data, id):
         response.read()
 
         #sql injection
-        conn.request("POST", POST_END+"'1' OR '1' = '1'")
+        headers = {"Content-type": "'1' OR '1' = '1'", "Accept": "text/plain"}
+        conn.request("POST", POST_END+"'1' OR '1' = '1'", params, headers)
         response = conn.getresponse()
         response.read()
     conn.close()
