@@ -1,0 +1,3 @@
+Mean response time is: 0.325680049889
+Worst response time is: 26.5739998817
+Average process time/word for POST: 0.702913999486

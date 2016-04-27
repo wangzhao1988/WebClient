@@ -5,11 +5,11 @@ from multiprocessing import Pool
 import matplotlib.pyplot as plt
 from random import randint,sample
 
-# URL = "www.google.com"
-URL = "flask3.qst6ftqmmz.us-west-2.elasticbeanstalk.com"
+URL = "www.google.com"
+# URL = "flask3.qst6ftqmmz.us-west-2.elasticbeanstalk.com"
 POST_END = "/String/"
 GET_END = "/Counts/"
-NUM_THREADS = 100
+NUM_THREADS = 50
 NUM_POST_THREADS = 10
 
 
@@ -48,7 +48,7 @@ def post_worker(data, id):
             print(id, i)
         item = data[i]
         word_count = len(item.split())
-        # item = urllib.quote(item)
+        item = urllib.quote(item)
         # start_time = time.time()
         conn.request("POST", POST_END+item)
         start_time = time.time()
@@ -63,28 +63,31 @@ def post_worker(data, id):
 def main():
     post_data = []
     get_data = []
+    vicious_words = ["null", "Null", "NULL"]
 
-    with open('../data/url.txt', 'r') as url:
-        lines = url.read().split("\n")
-        del(lines[-1])
+    with open('../data/index.txt', 'r') as dict_file:
+        lines = dict_file.read().split("\n")
+        del (lines[-1])
+        print "read in dict file"
         for i in range(NUM_POST_THREADS):
             temp = []
             for j in range(1000):
-                temp.append(lines[randint(0,len(lines)-1)])
+                targets = sample(range(len(lines)), 999)
+                query = ' '.join(lines[x] for x in targets)
+                query += " " + vicious_words[randint(0,len(vicious_words)-1)]
+                temp.append(query)
             post_data.append(temp)
 
-    with open('../data/index.txt', 'r') as index:
-        lines = index.read().split("\n")
-        del(lines[-1])
         for i in range(NUM_THREADS - NUM_POST_THREADS):
             temp = []
             for j in range(1000):
-                targets = sample(range(len(lines)), randint(1,10))
-                query = ','.join([lines[x] for x in targets])
+                targets = sample(range(len(lines)), 9)
+                query = ','.join(lines[x] for x in targets)
+                query += "," + vicious_words[randint(0,len(vicious_words)-1)]
                 temp.append(query)
             get_data.append(temp)
 
-
+    print("ready for pool")
     pool = Pool(processes=NUM_THREADS)
     res = []
     for i in range(NUM_THREADS):
