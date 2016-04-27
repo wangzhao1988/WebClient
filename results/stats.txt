@@ -1,0 +1,4 @@
+Mean time: 4057.154579697212ms
+Worst time: 39315ms
+Total post query words: 183433
+Time for each words: 213.18455239787824ms
