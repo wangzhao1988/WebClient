@@ -2,7 +2,7 @@ import httplib,urllib
 import time
 import os
 from multiprocessing import Pool
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from random import randint,sample
 
 URL = "www.google.com"
@@ -26,16 +26,24 @@ def get_worker(data, id):
     result = []
 
     for i in range(len(data)):
-        if i%50 == 0:
-            print(id, i)
+        # if i%50 == 0:
+        #     print(id, i)
         # start_time = time.time()
         conn.request("GET", GET_END+data[i])
         start_time = time.time()
         response = conn.getresponse()
         elapse_time = time.time() - start_time
         response.read()
-
         result.append(Envelope("GET", elapse_time))
+
+        conn.request("GET", GET_END)
+        response = conn.getresponse()
+        response.read()
+
+        conn.request("GET", GET_END+"'1' OR '1' = '1'")
+        response = conn.getresponse()
+        response.read()
+
     conn.close()
     return result
 
@@ -44,8 +52,8 @@ def post_worker(data, id):
     conn = httplib.HTTPConnection(URL)
     result = []
     for i in range(len(data)):
-        if i%50 == 0:
-            print(id, i)
+        # if i%50 == 0:
+        #     print(id, i)
         item = data[i]
         word_count = len(item.split())
         item = urllib.quote(item)
@@ -56,6 +64,16 @@ def post_worker(data, id):
         elapse_time = time.time() - start_time
         response.read()
         result.append(Envelope("POST", elapse_time, word_count))
+
+        #empty request
+        conn.request("POST", POST_END)
+        response = conn.getresponse()
+        response.read()
+
+        #sql injection
+        conn.request("POST", POST_END+"'1' OR '1' = '1'")
+        response = conn.getresponse()
+        response.read()
     conn.close()
     return result
 
@@ -139,9 +157,9 @@ def main():
     print "Average process time/word for POST: " + str(total_time/total_count)
     print x_axis
     print y_axis
-    plt.figure()
-    plt.bar(x_axis, y_axis, 0.02)
-    plt.show()
+    # plt.figure()
+    # plt.bar(x_axis, y_axis, 0.02)
+    # plt.show()
 
 
 if __name__ == '__main__':
