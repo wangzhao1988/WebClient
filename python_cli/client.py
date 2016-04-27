@@ -5,8 +5,8 @@ from multiprocessing import Pool
 import matplotlib.pyplot as plt
 from random import randint,sample
 
-URL = "www.google.com"
-# URL = "flask3.qst6ftqmmz.us-west-2.elasticbeanstalk.com"
+# URL = "www.google.com"
+URL = "flask3.qst6ftqmmz.us-west-2.elasticbeanstalk.com"
 POST_END = "/String/"
 GET_END = "/Counts/"
 NUM_THREADS = 100
