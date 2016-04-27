@@ -68,7 +68,7 @@ public class Client implements Runnable {
 			for (int i = 0; i < requests; i++) {
 				try {
 					sendPost();
-					if (i%10 == 0) {
+					if (i%50 == 0) {
 						System.out.println("Complete: " + this.id + " - " + i);
 					}
 				} catch (Exception e) {
@@ -80,7 +80,7 @@ public class Client implements Runnable {
 			for (int i = 0; i < requests; i++) {
 				try {
 					sendGet();
-					if (i%10 == 0) {
+					if (i%50 == 0) {
 						System.out.println("Complete: " + this.id + " - " + i);
 					}
 				} catch (Exception e) {
@@ -280,8 +280,7 @@ public class Client implements Runnable {
 		CloseableHttpResponse response = client.execute(request);
 		long time = System.currentTimeMillis() - startTime;
 		
-		HttpEntity entity = response.getEntity();
-	    EntityUtils.consume(entity);
+	    EntityUtils.consume(response.getEntity());
 	    response.close();
 		
 		
@@ -344,8 +343,7 @@ public class Client implements Runnable {
 		CloseableHttpResponse response = client.execute(post);
 		long time = System.currentTimeMillis() - startTime;
 		
-		HttpEntity entity = response.getEntity();
-	    EntityUtils.consume(entity);
+	    EntityUtils.consume(response.getEntity());
 	    response.close();
 		
 		if (time >= 1020) {
@@ -400,8 +398,6 @@ public class Client implements Runnable {
 		loadURL();
 		Client.connManager = new PoolingHttpClientConnectionManager();
 		connManager.setMaxTotal(THREADS_NUM);
-		HttpHost localhost = new HttpHost("locahost", 80);
-		connManager.setMaxPerRoute(new HttpRoute(localhost), THREADS_NUM);
 		System.out.println("Client starts...");
 		
 		for (int i = 0; i < THREADS_NUM; i++) {
