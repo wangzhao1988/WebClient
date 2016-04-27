@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -10,44 +11,54 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.conn.routing.HttpRoute;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.http.util.EntityUtils;
 
 public class Client implements Runnable {
 	private static final int THREADS_NUM = 100;
 	private static final String HOST = "http://flask3.qst6ftqmmz.us-west-2.elasticbeanstalk.com";
 	private static final String TOKEN = "/";
-	private static final String FOLDER_PATH = "./data/";
+	private static final String FOLDER_PATH = "/Users/zhao/Documents/workspace/WebClient/data/";
 	private final static int requests = 1000;
 	private static Object lock = new Object();
 	private final static List<String> wordList = new ArrayList<String>();
 	private final static Map<Integer, Integer> file2WordCount = new HashMap<Integer, Integer>();
 	private static String[] urls;
-	private Thread thread;
+	private static int threadCount = THREADS_NUM;
+	private static int totalQueryCount = 0;
+	private static double totalQueryMeanTime = 0;
+	private static long totalQueryWorstTime = 0;
+	private static double totalPostTime = 0;
+	private static int totalPostWord = 0;
+	private static List<Integer> totalTimes = new ArrayList<Integer>();
+	private static PoolingHttpClientConnectionManager connManager;
+	
+	private int id;
 	private boolean isPost;
-	private static volatile int threadCount = THREADS_NUM;
-	private static volatile int totalQueryCount = 0;
-	private static volatile double totalQueryMeanTime = 0;
-	private static volatile long totalQueryWorstTime = 0;
-	private static volatile double totalPostTime = 0;
-	private static volatile int totalPostWord = 0;
-	private static volatile int[] totalQueryStats = new int[51];
+	private CloseableHttpClient client;
+	private Thread thread;
 	
 	private int queryCount = 0;
 	private double queryTime = 0;
 	private long queryWorstTime = 0;
-	private int[] queryStats = new int[51];
 	private int postWordCount = 0;
-	
-	
-	private int id;
+	private List<Integer> times = new ArrayList<Integer>();
 	
 	public Client(int id, boolean isPost) {
 		this.id = id;
 		this.isPost = isPost;
+		this.client = HttpClients.custom().setConnectionManager(connManager).build();
 	}
 	
 	@Override
@@ -79,9 +90,17 @@ public class Client implements Runnable {
 			}
 		}
 		
+		try {
+			this.client.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+//		writeToFile();
+		
 		synchronized (lock) {
 			Client.threadCount -= 1;
-			System.out.println("Running threads: " + Client.threadCount);
 			totalQueryCount += this.queryCount;
 			totalQueryMeanTime += this.queryTime;
 			if (this.queryWorstTime > totalQueryWorstTime) {
@@ -91,16 +110,12 @@ public class Client implements Runnable {
 				totalPostTime += this.queryTime;
 				totalPostWord += this.postWordCount;
 			}
-			for (int i = 0; i < this.queryStats.length; i++) {
-				totalQueryStats[i] += this.queryStats[i];
-			}
+			
+			totalTimes.addAll(times);
+			System.out.println("Complete thread " + this.id + " Running threads: " + Client.threadCount);
 			
 			if (Client.threadCount == 0) {
-				System.out.println("frequency ~ response: ");
-				for (int i = 0; i < 50; i++) {
-					System.out.print(Client.totalQueryStats[i] + ", ");
-				}
-				System.out.println();
+//				System.out.println(totalTimes);
 				Client.totalQueryMeanTime /= Client.totalQueryCount;
 				System.out.println("Mean time: " + Client.totalQueryMeanTime);
 				System.out.println("Worst time: " + Client.totalQueryWorstTime);
@@ -109,6 +124,8 @@ public class Client implements Runnable {
 				System.out.println("Total post query words: " + Client.totalPostWord);
 				Client.totalPostTime /= Client.totalPostWord;
 				System.out.println("Time for each words: " + Client.totalPostTime);
+				writeResults();
+				connManager.close();
 			}
 		}
 	}
@@ -163,6 +180,75 @@ public class Client implements Runnable {
 //		System.out.println(wordList.size());
 	}
 	
+	private void writeResults() {
+		File file = new File(FOLDER_PATH);
+		FileWriter writer = null;
+		try {
+			writer = new FileWriter(file.getParent() + "/results/times.txt");
+			for (int time: totalTimes) {
+				writer.write(time + "\n");
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			try {
+				writer.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		try {
+			writer = new FileWriter(file.getParent() + "/results/stats.txt");
+			writer.write("Mean time: " + Client.totalQueryMeanTime + "ms\n");
+			writer.write("Worst time: " + Client.totalQueryWorstTime + "ms\n");
+			writer.write("Total post query words: " + Client.totalPostWord + "\n");
+			writer.write("Time for each words: " + Client.totalPostTime + "ms\n");
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			try {
+				writer.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	
+	private void writeToFile() {
+		File file = new File(FOLDER_PATH);
+		FileWriter writer = null;
+		try {
+			writer = new FileWriter(file.getParent() + "/results/" + this.id + ".txt");
+			writer.write("Times");
+			for (int time: this.times) {
+				writer.write(" " + time);
+			}
+			writer.write("\n");
+			writer.write("queryTime " + this.queryTime + "\n");
+			writer.write("queryCount " + this.queryCount + "\n");
+			writer.write("worstTime " + this.queryWorstTime + "\n");
+			if (this.isPost) {
+				writer.write("postTime " + this.queryTime + "\n");
+				writer.write("postWord " + this.postWordCount + "\n");
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				writer.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	
 	private static void loadURL() {
 		urls = new String[Client.file2WordCount.size()];
 		BufferedReader br = null;
@@ -188,18 +274,21 @@ public class Client implements Runnable {
 	private void sendGet() throws Exception {
 		String url = buildGetUrl();
 
-		HttpClient client = HttpClientBuilder.create().build();
 		HttpGet request = new HttpGet(url);
 		
 		long startTime = System.currentTimeMillis();
-		HttpResponse response = client.execute(request);
+		CloseableHttpResponse response = client.execute(request);
 		long time = System.currentTimeMillis() - startTime;
 		
-		long indexInStats = (time-1)/20;
-		if (indexInStats >= 50) {
-			this.queryStats[50]++;
+		HttpEntity entity = response.getEntity();
+	    EntityUtils.consume(entity);
+	    response.close();
+		
+		
+		if (time >= 1020) {
+			times.add(1010);
 		} else {
-			this.queryStats[(int) indexInStats]++;
+			times.add((int) time);
 		}
 		
 		this.queryCount++;
@@ -207,7 +296,6 @@ public class Client implements Runnable {
 		if (time > this.queryWorstTime) {
 			this.queryWorstTime = time;
 		}
-		
 
 //		System.out.println("\nSending 'GET' request to URL : " + url);
 //		System.out.println("Response Code : " + 
@@ -236,7 +324,7 @@ public class Client implements Runnable {
 		int randomSize = rand.nextInt(10);
 		for (int i = 0; i < randomSize; i++) {
 			int wordIndex = rand.nextInt(wordSize);
-			String word = this.wordList.get(wordIndex);
+			String word = Client.wordList.get(wordIndex);
 			if (i != 0) builder.append(",");
 			builder.append(word);
 		} 
@@ -250,19 +338,22 @@ public class Client implements Runnable {
 		String url = buildPostUrl(wordCount);
 //		System.out.println(url);
 
-		HttpClient client = HttpClientBuilder.create().build();
 		HttpPost post = new HttpPost(url);
 		
 		long startTime = System.currentTimeMillis();
-		HttpResponse response = client.execute(post);
+		CloseableHttpResponse response = client.execute(post);
 		long time = System.currentTimeMillis() - startTime;
 		
-		long indexInStats = (time-1)/20;
-		if (indexInStats >= 50) {
-			this.queryStats[50]++;
+		HttpEntity entity = response.getEntity();
+	    EntityUtils.consume(entity);
+	    response.close();
+		
+		if (time >= 1020) {
+			times.add(1010);
 		} else {
-			this.queryStats[(int) indexInStats]++;
+			times.add((int) time);
 		}
+		
 		
 		this.queryCount++;
 		this.queryTime += time;
@@ -307,6 +398,10 @@ public class Client implements Runnable {
 		loadWords();
 		loadCounts();
 		loadURL();
+		Client.connManager = new PoolingHttpClientConnectionManager();
+		connManager.setMaxTotal(THREADS_NUM);
+		HttpHost localhost = new HttpHost("locahost", 80);
+		connManager.setMaxPerRoute(new HttpRoute(localhost), THREADS_NUM);
 		System.out.println("Client starts...");
 		
 		for (int i = 0; i < THREADS_NUM; i++) {
